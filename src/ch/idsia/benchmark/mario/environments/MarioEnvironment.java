@@ -160,7 +160,7 @@ public final class MarioEnvironment implements Environment {
 			marioVisualComponent.setAlwaysOnTop(setUpOptions
 					.isViewAlwaysOnTop());
 
-			if (setUpOptions.isScale2X())
+//			if (setUpOptions.isScale2X())
 				GlobalOptions.changeScale2x();
 		} else
 			levelScene.reset(setUpOptions);

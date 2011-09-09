@@ -95,7 +95,7 @@ public static void resetStatic(MarioAIOptions marioAIOptions)
 
     isMarioInvulnerable = marioAIOptions.isMarioInvulnerable();
     marioGravity = marioAIOptions.getMarioGravity();
-    jumpPower = marioAIOptions.getJumpPower();
+     jumpPower = marioAIOptions.getJumpPower();
 
     isTrace = marioAIOptions.isTrace();
 
@@ -138,7 +138,7 @@ public int winTime = 0;
 private int invulnerableTime = 0;
 
 public Sprite carried = null;
-    public static Mario instance;
+	public static Mario instance;
 
 public Mario(LevelScene levelScene)
 {

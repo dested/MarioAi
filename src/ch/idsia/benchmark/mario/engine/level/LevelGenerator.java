@@ -815,8 +815,8 @@ private static int buildTubes(int xo, int maxLength, int maxHeight, int vfloor, 
 
         if (x == xTube && globalRandom.nextInt(11) < levelDifficulty + 1 && creaturesRandom.isCreatureEnabled("f"))
         {
-            level.setSpriteTemplate(x, tubeHeight, new SpriteTemplate(Sprite.KIND_ENEMY_FLOWER));
-            ++counters.creatures;
+//            level.setSpriteTemplate(x, tubeHeight, new SpriteTemplate(Sprite.KIND_ENEMY_FLOWER));
+//            ++counters.creatures;
         }
 
         for (int y = 0; y < floor + floorHeight; y++)
