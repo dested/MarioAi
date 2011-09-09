@@ -1,19 +1,23 @@
-
 package ch.idsia.agents.controllers;
 
 import java.util.ArrayList;
 import java.util.List;
 
+import com.sun.org.apache.bcel.internal.generic.LLOAD;
+
 import ch.idsia.agents.Agent;
+import ch.idsia.agents.controllers.DestedAgent.MoveState;
 import ch.idsia.benchmark.mario.engine.LevelScene;
 import ch.idsia.benchmark.mario.engine.level.Level;
+import ch.idsia.benchmark.mario.engine.level.SpriteTemplate;
 import ch.idsia.benchmark.mario.engine.sprites.Fireball;
 import ch.idsia.benchmark.mario.engine.sprites.Mario;
 import ch.idsia.benchmark.mario.engine.sprites.Sparkle;
+import ch.idsia.benchmark.mario.engine.sprites.Sprite;
 import ch.idsia.benchmark.mario.environments.Environment;
 
 public class DestedAgent extends BasicMarioAIAgent implements Agent {
- 
+
 	public DestedAgent() {
 		super("DestedAgent");
 		reset();
@@ -21,7 +25,7 @@ public class DestedAgent extends BasicMarioAIAgent implements Agent {
 
 	public void reset() {
 		action = new boolean[Environment.numberOfKeys];
-	 
+
 	}
 
 	public boolean[] getAction() {
@@ -35,33 +39,76 @@ public class DestedAgent extends BasicMarioAIAgent implements Agent {
 	private boolean[] make() {
 		MarioState original = new MarioState(Mario.instance);
 
-		int[][] keyz = new int[][] { new int[] { Mario.KEY_DOWN },
+		int[][] keyz = new int[][] {
 				new int[] { Mario.KEY_JUMP, Mario.KEY_SPEED },
 				new int[] { Mario.KEY_LEFT, Mario.KEY_SPEED },
 				new int[] { Mario.KEY_RIGHT, Mario.KEY_SPEED },
-				new int[] { Mario.KEY_UP, Mario.KEY_SPEED },
+				new int[] { Mario.KEY_LEFT, Mario.KEY_SPEED, Mario.KEY_JUMP },
+				new int[] { Mario.KEY_RIGHT, Mario.KEY_SPEED, Mario.KEY_JUMP },
 				new int[] { Mario.KEY_JUMP }, new int[] { Mario.KEY_LEFT },
-				new int[] { Mario.KEY_RIGHT }, new int[] { Mario.KEY_UP } };
+				new int[] { Mario.KEY_RIGHT } };
 
 		List<MarioState> mz = new ArrayList<MarioState>();
 		mz.add(original);
 		int limit = 1000;
-		for (int j = 0; j < 6; j++) {
+		for (int j = 0; j < 10; j++) {
 			List<MarioState> mzc = new ArrayList<MarioState>();
+			if(mz.size()>j*100000)
 			for (MarioState marioState : mz) {
 				for (int i = 0; i < keyz.length; i++) {
 					MarioState m = new MarioState(marioState);
 					// maybe =false
-					for (int ic = 0; ic < m.keys.length; ic++)
-						m.keys[ic] = false;
 					for (int js : keyz[i]) {
 						m.keys[js] = true;
 					}
 					if (j == 0)
 						m.setOriginalKeys();
-					int nScore;
-					m.score += nScore = doit(m);
-					if (nScore < limit)
+					int nScore = 0;
+
+					List<MoveState> fs = doit(m);
+					m.states = fs;
+					for (MoveState moveState : fs) {
+						switch (moveState) {
+						case Collided:
+							nScore += 80;
+							break;
+						case CriticalFail:
+							nScore += limit * 2;
+							break;
+						case Jumping:
+							nScore -= 80;
+							break;
+						case JumpingWasSliding:
+							nScore -= 40;
+							break;
+						case MovingAway:
+							nScore += 10;
+							break;
+						case MovingTowards:
+							nScore -= 60;
+							break;
+						case NotRunning:
+							nScore += 150;
+							break;
+						case Running:
+							nScore -= 80;
+							break;
+						case NothingBelow:
+							nScore += limit * 2;
+						case Sliding:
+							nScore -= ((limit * 2)+100);
+							break;
+						case Stopped:
+							nScore +=50;
+							break;
+						}
+					}
+
+					nScore -= (m.x - original.x)*20 ;
+
+//					nScore+=(j*30);
+					m.score += nScore;
+					if (nScore < (-20))
 						mzc.add(m);
 				}
 			}
@@ -71,6 +118,7 @@ public class DestedAgent extends BasicMarioAIAgent implements Agent {
 			mz = mzc;
 
 		}
+
 		int curLowest = Integer.MAX_VALUE;
 		MarioState curState = null;
 		for (MarioState marioState : mz) {
@@ -86,32 +134,38 @@ public class DestedAgent extends BasicMarioAIAgent implements Agent {
 		return new boolean[6];
 	}
 
-	public int doit(MarioState ms) {
-		int score = 0;
+	public enum MoveState {
+		CriticalFail,NothingBelow, Running, NotRunning, Jumping, MovingAway, MovingTowards, JumpingWasSliding, Stopped, Sliding, Collided, NewIteration
+
+	}
+
+	public List<MoveState> doit(MarioState ms) {
+		List<MoveState> mc = new ArrayList<MoveState>();
+
+		if (ms.isWorseBlocking(ms.x, ms.y)) {
+			mc.add(MoveState.CriticalFail);
+			return mc;
+		}
 
 		float sideWaysSpeed = ms.keys[Mario.KEY_SPEED] ? 1.2f : 0.6f;
-		if (!ms.keys[Mario.KEY_SPEED]) {
-			score += 500;
-		}
+
+		if (!ms.keys[Mario.KEY_SPEED])
+			mc.add(MoveState.NotRunning);
 
 		if (ms.xa > 2) {
 			ms.facing = 1;
-			score-= 100;
 		}
 		if (ms.xa < -2) {
 			ms.facing = -1;
-			score += 30;
 		}
 
 		if (ms.keys[Mario.KEY_JUMP]
 				|| (ms.jumpTime < 0 && !ms.onGround && !ms.sliding)) {
-
-			score -= 300;
 			if (ms.jumpTime < 0) {
 				ms.xa = ms.xJumpSpeed;
 				ms.ya = -ms.jumpTime * ms.yJumpSpeed;
 				ms.jumpTime++;
-				score -= 100;
+				// mc.add(MoveState.Jumping);
 			} else if (ms.onGround && ms.mayJump) {
 				ms.xJumpSpeed = 0;
 				ms.yJumpSpeed = -1.9f;
@@ -119,7 +173,7 @@ public class DestedAgent extends BasicMarioAIAgent implements Agent {
 				ms.ya = ms.jumpTime * ms.yJumpSpeed;
 				ms.onGround = false;
 				ms.sliding = false;
-				score -= 200;
+				mc.add(MoveState.Jumping);
 			} else if (ms.sliding && ms.mayJump) {
 				ms.xJumpSpeed = -ms.facing * 6.0f;
 				ms.yJumpSpeed = -2.0f;
@@ -129,17 +183,16 @@ public class DestedAgent extends BasicMarioAIAgent implements Agent {
 				ms.onGround = false;
 				ms.sliding = false;
 				ms.facing = -ms.facing;
-				score -= 1000;
+				mc.add(MoveState.JumpingWasSliding);
+
 			} else if (ms.jumpTime > 0) {
 				ms.xa += ms.xJumpSpeed;
 				ms.ya = ms.jumpTime * ms.yJumpSpeed;
 				ms.jumpTime--;
-				score -= 200;
-			}
+				mc.add(MoveState.Jumping);
+			} 
 		} else {
 			ms.jumpTime = 0;
-
-			score += 100;
 		}
 
 		if (ms.keys[Mario.KEY_LEFT] && !ms.ducking) {
@@ -148,7 +201,6 @@ public class DestedAgent extends BasicMarioAIAgent implements Agent {
 			ms.xa -= sideWaysSpeed;
 			if (ms.jumpTime >= 0)
 				ms.facing = -1;
-			score += 50;
 		}
 
 		if (ms.keys[Mario.KEY_RIGHT] && !ms.ducking) {
@@ -157,41 +209,64 @@ public class DestedAgent extends BasicMarioAIAgent implements Agent {
 			ms.xa += sideWaysSpeed;
 			if (ms.jumpTime >= 0)
 				ms.facing = 1;
-			score -= 50;
 		}
 
 		if ((!ms.keys[Mario.KEY_LEFT] && !ms.keys[Mario.KEY_RIGHT])
 				|| ms.ducking || ms.ya < 0 || ms.onGround) {
 			ms.sliding = false;
-			score -= 50;
 		}
 
 		ms.ableToShoot = !ms.keys[Mario.KEY_SPEED];
 
 		ms.mayJump = (ms.onGround || ms.sliding) && !ms.keys[Mario.KEY_JUMP];
 
-		score -= ms.xa * 5;
-		score -= ms.ya * 2;
-		if (ms.xa == 0) {
-			score += 100000;
+		 
+
+		float oldx = ms.x;
+		float oldy = ms.y;
+
+		float running = 4;
+
+		boolean didntCollide = ms.move(ms.xa, 0);
+		didntCollide = ms.move(0, ms.ya) ? true : didntCollide;
+		if (Math.abs(ms.x - oldx) > running) {
+			mc.add(MoveState.Running);
 		}
 
-		boolean didCollide = ms.move(ms.xa, 0);
-		didCollide = ms.move(0, ms.ya) ? true : didCollide;
+		if (Math.floor(ms.x) > Math.floor(oldx))
+			mc.add(MoveState.MovingTowards);
+		else if (Math.floor(ms.x) < Math.floor(oldx))
+			mc.add(MoveState.MovingAway);
+		else if (Math.floor(ms.x) == Math.floor(oldx))
+			if(!ms.sliding)
+				mc.add(MoveState.Stopped);
 
+		boolean bad=true;
+		for(int jc=(int)(ms.y/LevelScene.cellSize);jc<ms.levelScene.level.height+1;jc++){
+			if(!ms.levelScene.level.isBlocking((int)(ms.x/16),jc,(float)0,(float)0)){
+				bad=false;
+				break;
+			}
+		}
+		if(bad)
+			mc.add(MoveState.NothingBelow);
+		
 		if (ms.y > ms.levelScene.level.height * LevelScene.cellSize
 				+ LevelScene.cellSize)
-			score+=Integer.MAX_VALUE;
+			mc.add(MoveState.CriticalFail);
 
-
-		if (didCollide && !ms.sliding) {
-			score += 400;
+		if (!didntCollide && !ms.sliding) {
+			mc.add(MoveState.Collided);
 		}
-		if(ms.sliding)score-=200;
-		return score;
+		if (ms.sliding)
+			mc.add(MoveState.Sliding);
+
+		return mc;
 	}
 
 	public class MarioState {
+		public List<MoveState> states;
+		public List<MoveState> allStates;
 		public boolean[] originalKeys;
 		public int score;
 		public float jT;
@@ -213,6 +288,8 @@ public class DestedAgent extends BasicMarioAIAgent implements Agent {
 		LevelScene levelScene;
 		int width = 4;
 		int height = 24;
+		private float yCam;
+		private float xCam;
 
 		public MarioState() {
 			keys = new boolean[7];
@@ -242,9 +319,16 @@ public class DestedAgent extends BasicMarioAIAgent implements Agent {
 			sliding = state.sliding;
 			levelScene = state.levelScene;
 			originalKeys = state.originalKeys;
+			allStates = new ArrayList<MoveState>(state.allStates);
+			if (state.states != null)
+				{allStates.add(MoveState.NewIteration);
+				allStates.addAll(state.states);}
+			xCam = state.xCam;
+			yCam = state.yCam;
 		}
 
 		public MarioState(Mario state) {
+			allStates = new ArrayList<MoveState>();
 			jT = state.jT;
 			mayJump = state.mayJump;
 			xJumpSpeed = state.xJumpSpeed;
@@ -262,6 +346,8 @@ public class DestedAgent extends BasicMarioAIAgent implements Agent {
 			onGround = state.onGround;
 			sliding = state.sliding;
 			levelScene = Mario.levelScene;
+			xCam = levelScene.xCam;
+			yCam = levelScene.xCam;
 		}
 
 		private boolean move(float xa, float ya) {
@@ -355,6 +441,7 @@ public class DestedAgent extends BasicMarioAIAgent implements Agent {
 				if (ya > 0) {
 					y = (int) ((y - 1) / 16 + 1) * 16 - 1;
 					onGround = true;
+
 				}
 				return false;
 			} else {
@@ -374,6 +461,41 @@ public class DestedAgent extends BasicMarioAIAgent implements Agent {
 			boolean blocking = levelScene.level.isBlocking(x, y, xa, ya);
 
 			return blocking;
+		}
+
+		private boolean isWorseBlocking(final float _x, final float _y) {
+			int x1 = (int) ((_x ) / 16);
+			int y1 = (int) ((_y ) / 16);
+
+			boolean blocking = isWorseBlocking(enemiesFloatPos, x1, y1);
+
+			return blocking;
+		}
+
+		public boolean isWorseBlocking(float[] enemiesFloatPos, int x, int y) {
+
+			boolean done = (getEnemy(enemiesFloatPos, x, y));
+			done = done || (getEnemy(enemiesFloatPos, x - 1, y));
+			done = done || (getEnemy(enemiesFloatPos, x + 1, y));
+			done = done || (getEnemy(enemiesFloatPos, x, y - 1));
+			done = done || (getEnemy(enemiesFloatPos, x, y + 1));
+
+			return done;
+
+		}
+
+		private boolean getEnemy(float[] enemiesFloatPos, int i, int j) {
+			if (i < 0 || j < 0)
+				return false;
+
+			for (int c = 0; c < enemiesFloatPos.length; c += 3) {
+				if ((enemiesFloatPos[c + 1] > (i ) * 16 && enemiesFloatPos[c + 1] < (i + 1) * 16) || (enemiesFloatPos[c + 2] > (j ) * 16 && enemiesFloatPos[c + 2] <(j + 1) * 16)) {
+					
+					return true;
+				}
+			}
+
+			return false;
 		}
 	}
 
