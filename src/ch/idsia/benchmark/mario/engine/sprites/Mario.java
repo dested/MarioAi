@@ -113,7 +113,7 @@ public int getMode()
 
 public boolean[] keys = new boolean[Environment.numberOfKeys];
 public boolean[] cheatKeys;
-private float runTime;
+public float runTime;
 boolean wasOnGround = false;
 public boolean onGround = false;
 public boolean mayJump = false;
