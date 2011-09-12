@@ -29,6 +29,7 @@ package ch.idsia.benchmark.mario.engine;
 
 import ch.idsia.agents.controllers.DestedAgent.MarioState;
 import ch.idsia.benchmark.mario.engine.level.Level;
+import ch.idsia.benchmark.mario.engine.sprites.Mario;
 
 import java.awt.*;
 import java.awt.geom.Arc2D;
@@ -118,16 +119,19 @@ public class LevelRenderer {
 	public void render(Graphics g, int tick) {
 		g.drawImage(image, 0, 0, null);
 		g.setColor(Color.blue);
-	    
-		for (MarioState is : redrawStates) {
 
-			
-			
-			is.draw((Graphics2D)g);
-//			  g2.draw( new Ellipse2D.Float(is[0],is[1],4f,4f));
-			   
+		for (MarioState is : redrawStates) {
+			if (is.parent == null)
+				g.drawLine((int) (float) is.x- (int) Mario.instance.levelScene.xCam, (int) is.y, (int) (float) is.x- (int) Mario.instance.levelScene.xCam,
+						(int) is.y);
+			else
+				g.drawLine((int) (float) is.parent.x- (int) Mario.instance.levelScene.xCam, (int) is.parent.y,
+						(int) (float) is.x- (int) Mario.instance.levelScene.xCam, (int) is.y);
+
+			// is.draw((Graphics2D)g);
+
 		}
-		
+
 		for (int x = xCam / 16; x <= (xCam + width) / 16; x++)
 			for (int y = yCam / 16; y <= (yCam + height) / 16; y++) {
 				byte b = level.getBlock(x, y);
@@ -218,8 +222,8 @@ public class LevelRenderer {
 
 			}
 
-	
-	}	
+	}
+
 	public static ArrayList<MarioState> redrawStates = new ArrayList<MarioState>();
 	public static int maxIter;
 

@@ -74,7 +74,7 @@ private int prevyPicO;
 private int prevHPic;
 
 private boolean isRacoon;
-private float yaa = 1;
+public float yaa = 1;
 
 private static float windCoeff = 0f;
 private static float iceCoeff = 0f;

@@ -63,7 +63,7 @@ public class DestedAgent extends BasicMarioAIAgent implements Agent {
 
 		MarioState ms = new MarioState(Mario.instance);
 
-		MarioState curState = getit(ms, (int) (ms.x + 150));
+		MarioState curState = getit(ms, (int) (ms.x + 350));
 
 		if (curState != null) {
 			if (curState.storedKeys.size() == 0) {
@@ -97,8 +97,11 @@ public class DestedAgent extends BasicMarioAIAgent implements Agent {
 
 		while (!open.isEmpty()) {
 			current = open.poll();
-			if(closed.size()>9000)
+			if (visitados.size() > 4500) {
+
 				break;
+			}
+
 			visitados.add(current);
 
 			if (isGoal(current, goalX))
@@ -129,16 +132,21 @@ public class DestedAgent extends BasicMarioAIAgent implements Agent {
 	}
 
 	private boolean isGoal(MarioState current, int goal) {
-		return (current.x > goal - 10 && current.x < goal + 10);
+
+		return (current.x > goal - 4 && current.x < goal + 4);
 	}
 
 	int[][] keyz = new int[][] { new int[] { Mario.KEY_LEFT, Mario.KEY_SPEED },
 			new int[] { Mario.KEY_RIGHT, Mario.KEY_SPEED },
-			new int[] { Mario.KEY_LEFT, Mario.KEY_JUMP },
-			new int[] { Mario.KEY_RIGHT, Mario.KEY_JUMP },
-			new int[] { Mario.KEY_LEFT, Mario.KEY_SPEED, Mario.KEY_JUMP },
-			new int[] { Mario.KEY_RIGHT, Mario.KEY_SPEED, Mario.KEY_JUMP },
+			new int[] { Mario.KEY_JUMP, Mario.KEY_LEFT },
+			new int[] { Mario.KEY_JUMP, Mario.KEY_RIGHT },
+			new int[] { Mario.KEY_JUMP, Mario.KEY_LEFT, Mario.KEY_SPEED },
+			new int[] { Mario.KEY_JUMP, Mario.KEY_RIGHT, Mario.KEY_SPEED },
 			new int[] { Mario.KEY_LEFT }, new int[] { Mario.KEY_RIGHT } };
+
+	public boolean canJumpHigher(MarioState currentPos) {
+		return currentPos.mayJump || (currentPos.jumpTime > 0);
+	}
 
 	private ArrayList<MarioState> getNeighbors(MarioState current,
 			int iteration, float goalX) {
@@ -146,15 +154,18 @@ public class DestedAgent extends BasicMarioAIAgent implements Agent {
 		ArrayList<MarioState> ms = new ArrayList<DestedAgent.MarioState>();
 
 		for (int i = 0; i < keyz.length; i++) {
+
+			if (keyz[i][0] == Mario.KEY_JUMP && !canJumpHigher(current))
+				continue;
+
 			MarioState m = new MarioState(current);
 			// maybe =false
 			for (int js : keyz[i]) {
 				m.keys[js] = true;
 			}
-			if (iteration < 3)
+			if (iteration < 2)
 				m.storeKeys();
 			int nScore = 0;
-			int limit = 10000;
 			List<MoveState> fs = new ArrayList<MoveState>();
 			fs.addAll(m.move());
 
@@ -168,6 +179,9 @@ public class DestedAgent extends BasicMarioAIAgent implements Agent {
 					continue;
 					// nScore += limit * 2;
 					// break;
+				case Won:
+					nScore = -54654654;
+					break;
 				case Jumping:
 					nScore -= 60;
 					break;
@@ -190,7 +204,8 @@ public class DestedAgent extends BasicMarioAIAgent implements Agent {
 					nScore -= 61;
 					break;
 				case NothingBelow:
-					 nScore -= 300;
+					nScore += 40;
+					break;
 				case Sliding:
 					nScore -= 200;
 					break;
@@ -200,8 +215,8 @@ public class DestedAgent extends BasicMarioAIAgent implements Agent {
 				}
 			}
 
-			nScore -= (m.x - current.x) * 3;
-			 nScore -= ((15 * 16) - m.y) / 16;
+			nScore -= (m.x - current.x) * 6;
+			nScore -= ((15 * 16) - m.y) / 5.5;
 			// nScore = (int) (goalX - m.x);
 
 			// nScore -= ((15*16)-m.y) * 5;
@@ -209,7 +224,7 @@ public class DestedAgent extends BasicMarioAIAgent implements Agent {
 			ms.add(m);
 
 			// nScore+=(j*30);
-			 m.score = nScore;
+			m.score = nScore;
 		}
 		return ms;
 	}
@@ -290,7 +305,7 @@ public class DestedAgent extends BasicMarioAIAgent implements Agent {
 							nScore -= 150;
 							break;
 						case NothingBelow:
-							nScore += limit * 2;
+							nScore -= limit * 2;
 						case Sliding:
 							nScore -= 100;
 							break;
@@ -300,14 +315,13 @@ public class DestedAgent extends BasicMarioAIAgent implements Agent {
 						}
 					}
 
-					nScore -= (m.x - original.x) * 20;
+					nScore += (m.x - original.x) * 20;
 
 					// nScore -= ((15*16)-m.y) * 5;
 
 					// nScore+=(j*30);
-					m.score += nScore;
-					if (nScore < (-60))
-						mzc.add(m);
+					m.score = nScore;
+					mzc.add(m);
 				}
 			}
 			if (mzc.size() == 0) {
@@ -372,7 +386,7 @@ public class DestedAgent extends BasicMarioAIAgent implements Agent {
 	}
 
 	public enum MoveState {
-		CriticalFail, NothingBelow, Running, NotRunning, Jumping, MovingAway, MovingTowards, JumpingWasSliding, Stopped, Sliding, Collided, NewIteration, TooClose
+		CriticalFail, NothingBelow, Running, NotRunning, Jumping, MovingAway, MovingTowards, JumpingWasSliding, Stopped, Sliding, Collided, NewIteration, TooClose, Won
 
 	}
 
@@ -505,7 +519,8 @@ public class DestedAgent extends BasicMarioAIAgent implements Agent {
 		if (ms.y > ms.levelScene.level.height * LevelScene.cellSize
 				+ LevelScene.cellSize)
 			mc.add(MoveState.CriticalFail);
-
+		if (ms.x > ms.levelScene.getLevelLength() * 16)
+			mc.add(MoveState.Won);
 		if (!didntCollide && !ms.sliding) {
 			mc.add(MoveState.Collided);
 		}
@@ -518,6 +533,7 @@ public class DestedAgent extends BasicMarioAIAgent implements Agent {
 
 		if (!ms.onGround) {
 			// ya += 3;
+
 			ms.ya += ms.yaa;
 		}
 
@@ -541,7 +557,7 @@ public class DestedAgent extends BasicMarioAIAgent implements Agent {
 		public int jumpTime;
 		boolean canJump;
 		public Float x;
-		float y;
+		public float y;
 		float xa;
 		float ya;
 		boolean[] keys;
@@ -555,6 +571,8 @@ public class DestedAgent extends BasicMarioAIAgent implements Agent {
 		private float yCam;
 		private float xCam;
 		public float yaa;
+
+		public MarioState parent;
 
 		public boolean large;
 
@@ -666,6 +684,7 @@ public class DestedAgent extends BasicMarioAIAgent implements Agent {
 		}
 
 		public MarioState(MarioState state) {
+			parent = state;
 			jT = state.jT;
 			yaa = 1 * 3;
 			xPic = state.xPic;
@@ -709,6 +728,7 @@ public class DestedAgent extends BasicMarioAIAgent implements Agent {
 		}
 
 		public MarioState(Mario state) {
+			parent = null;
 			allStates = new ArrayList<MoveState>();
 			jT = state.jT;
 			mayJump = state.mayJump;
@@ -760,6 +780,9 @@ public class DestedAgent extends BasicMarioAIAgent implements Agent {
 			}
 			if (xa < -2) {
 				facing = -1;
+			}
+			if (keys[Mario.KEY_SPEED]) {
+				ar.add(MoveState.Running);
 			}
 
 			// float Wind = 0.2f;
@@ -857,23 +880,35 @@ public class DestedAgent extends BasicMarioAIAgent implements Agent {
 			move(0, ya);
 			;
 
-			boolean bad = true;
+			/*
+			 * boolean bad = true; for (int jc = (int) (y /
+			 * LevelScene.cellSize); jc < levelScene.level.height + 1; jc++) {
+			 * if (! levelScene.level.isBlocking((int) (x / 16), jc, (float) 0,
+			 * (float) 0)) { bad = false; break; } }
+			 */boolean bad = true;
 			for (int jc = (int) (y / LevelScene.cellSize); jc < levelScene.level.height + 1; jc++) {
 				if (!levelScene.level.isBlocking((int) (x / 16), jc, (float) 0,
 						(float) 0)) {
 					bad = false;
 					break;
 				}
-			}  
+			}
 			if (bad)
 				ar.add(MoveState.NothingBelow);
-			
-			
-		//	if (levelScene.level.isBlocking((int) ((x) / 16) + 1,
-			//		(int) (y / LevelScene.cellSize), (float) 0, (float) 0))
-				//ar.add(MoveState.TooClose);
+			// if (!levelScene.level.isBlocking((int) (x / 16),
+			// levelScene.level.height, (float) 0,(float) 0)) {
+			// ar.add(MoveState.NothingBelow);
 
-			if (y > levelScene.level.height * LevelScene.cellSize
+			// }
+
+			// if (bad)
+			// ar.add(MoveState.NothingBelow);
+
+			// if (levelScene.level.isBlocking((int) ((x) / 16) + 1,
+			// (int) (y / LevelScene.cellSize), (float) 0, (float) 0))
+			// ar.add(MoveState.TooClose);
+
+			if (y > (levelScene.level.height - 1) * LevelScene.cellSize
 					+ LevelScene.cellSize)
 				ar.add(MoveState.CriticalFail);
 
@@ -1068,8 +1103,7 @@ public class DestedAgent extends BasicMarioAIAgent implements Agent {
 			MarioState ms = ((MarioState) o);
 
 			int limit = 2;
-			return (this.x >= ms.x - limit && this.x < ms.x + limit)
-					&& (this.y >= ms.y - limit && this.y < ms.y + limit);
+			return (Math.abs(ms.x - x) < limit && Math.abs(ms.y - y) < limit);
 
 		}
 

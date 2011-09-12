@@ -214,8 +214,10 @@ public byte getBlock(int x, int y)
 {
     if (x < 0) x = 0;
     if (y < 0) return 0;
-    if (x >= length) x = length - 1;
-    if (y >= height) y = height - 1;
+    if (x >= length) 
+    	x = length - 1;
+    if (y >= height) 
+    	y = height - 1;
     return map[x][y];
 }
 
